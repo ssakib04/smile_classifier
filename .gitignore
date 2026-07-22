@@ -1,24 +1,18 @@
-# Python bytecode & cache
 __pycache__/
 *.pyc
 *.pyo
 
-# Virtual environments
 venv/
 env/
 .venv/
 
-# Environment / Secret variables
 .env
 
-# Uploaded test images for inference (keeps history images off Git)
 app/static/uploads/*
 !.gitignore
 
-# Saved trained model files (optional: excludes model binaries)
 models_store/*
 !.gitignore
 
-# Operating system metadata
 .DS_Store
 Thumbs.db

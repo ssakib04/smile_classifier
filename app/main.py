@@ -14,10 +14,12 @@ from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db
 from app import models, ml_pipeline
 
+# Auto-create tables in PostgreSQL on startup
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Smile Classifier")
 
+# Mount Static and Template Directories
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -31,6 +33,7 @@ def get_available_models():
         return []
     return [f.replace(".pkl", "") for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")]
 
+# 1. HOME PAGE
 @app.get("/")
 def home_page(request: Request):
     return templates.TemplateResponse("home.html", {"request": request})
@@ -42,27 +45,35 @@ def train_page(request: Request):
 
 # 2. TRAIN PAGE (POST)
 @app.post("/train")
-def train_model(
+async def train_model(
     request: Request,
-    model_name: str = Form(...),
-    smile_images: List[UploadFile] = File(...),
-    not_smile_images: List[UploadFile] = File(...),
     db: Session = Depends(get_db)
 ):
     try:
+        # Increase limit here explicitly up to 10,000 files
+        form = await request.form(max_files=10000, max_fields=10000)
+        
+        model_name = form.get("model_name")
+        smile_images = form.getlist("smile_images")
+        not_smile_images = form.getlist("not_smile_images")
+
+        if not model_name:
+            return templates.TemplateResponse("train.html", {
+                "request": request,
+                "error": "Model name is required."
+            })
+
         smile_bytes = []
         for file in smile_images:
-            if file.filename:
-                file.file.seek(0)
-                content = file.file.read()
+            if hasattr(file, "filename") and file.filename:
+                content = await file.read()
                 if content:
                     smile_bytes.append(content)
 
         not_smile_bytes = []
         for file in not_smile_images:
-            if file.filename:
-                file.file.seek(0)
-                content = file.file.read()
+            if hasattr(file, "filename") and file.filename:
+                content = await file.read()
                 if content:
                     not_smile_bytes.append(content)
 
@@ -72,8 +83,10 @@ def train_model(
                 "error": "Please upload at least one image for both classes."
             })
 
+        # Train model and save .pkl
         acc_score = ml_pipeline.train_new_model(smile_bytes, not_smile_bytes, model_name, MODELS_DIR)
 
+        # Save record to Database
         log = models.TrainingLog(
             model_name=f"{model_name}.pkl",
             smile_count=len(smile_bytes),
@@ -144,6 +157,7 @@ async def process_classification(
         "model_used": model_choice
     })
 
+# 4. HISTORY PAGE
 @app.get("/history")
 def history_page(request: Request, db: Session = Depends(get_db)):
     train_logs = db.query(models.TrainingLog).order_by(models.TrainingLog.created_at.desc()).all()
