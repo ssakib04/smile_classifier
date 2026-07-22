@@ -1,84 +1,76 @@
-import os
-import pickle
 import io
+import pickle
 import numpy as np
 from PIL import Image
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
 
-IMAGE_SIZE = (64, 64)  # Standardized resize dimensions for pixel flattening
+def extract_features(image_bytes: bytes) -> np.ndarray:
+    img = Image.open(io.BytesIO(image_bytes)).convert('L')
+    img = img.resize((64, 64))
+    return np.array(img).flatten()
 
-def process_image(image_bytes: bytes):
-    """Safely reads raw image bytes, converts RGBA/PNG to RGB, resizes, and flattens to 1D vector."""
-    try:
-        img = Image.open(io.BytesIO(image_bytes))
-        img = img.convert('RGB')  # Strip alpha channels / convert grayscale
-        img = img.resize(IMAGE_SIZE)
-        return np.array(img).flatten() / 255.0  # Normalize pixel intensities [0, 1]
-    except Exception as e:
-        print(f"Skipping corrupted image: {e}")
-        return None
+def train_new_model_stream(smile_bytes_list, not_smile_bytes_list, model_name, save_dir, progress_callback=None):
+    total_images = len(smile_bytes_list) + len(not_smile_bytes_list)
+    processed = 0
 
-def train_new_model(smile_files: list, not_smile_files: list, model_name: str, models_dir: str = "models_store"):
     X, y = [], []
 
-    # Process Smiling images (Label = 1)
-    for file_bytes in smile_files:
-        vec = process_image(file_bytes)
-        if vec is not None:
-            X.append(vec)
-            y.append(1)
+    for b in smile_bytes_list:
+        feat = extract_features(b)
+        X.append(feat)
+        y.append(1)
+        processed += 1
+        if progress_callback and total_images > 0:
+            pct = int((processed / total_images) * 40)
+            progress_callback(pct, f"Extracting features from smiling images ({processed}/{total_images})...")
 
-    # Process Not-Smiling images (Label = 0)
-    for file_bytes in not_smile_files:
-        vec = process_image(file_bytes)
-        if vec is not None:
-            X.append(vec)
-            y.append(0)
-
-    if len(X) == 0:
-        raise ValueError("No valid image files could be processed.")
+    for b in not_smile_bytes_list:
+        feat = extract_features(b)
+        X.append(feat)
+        y.append(0)
+        processed += 1
+        if progress_callback and total_images > 0:
+            pct = int((processed / total_images) * 40)
+            progress_callback(pct, f"Extracting features from non-smiling images ({processed}/{total_images})...")
 
     X = np.array(X)
     y = np.array(y)
 
+    if progress_callback:
+        progress_callback(50, "Splitting dataset into train/test sets...")
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+    if progress_callback:
+        progress_callback(70, "Fitting RandomForestClassifier model...")
+
     clf = RandomForestClassifier(n_estimators=100, random_state=42)
-    clf.fit(X, y)
+    clf.fit(X_train, y_train)
 
-    if len(np.unique(y)) > 1 and len(y) >= 4:
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-        clf_eval = RandomForestClassifier(n_estimators=100, random_state=42)
-        clf_eval.fit(X_train, y_train)
-        acc = float(accuracy_score(y_test, clf_eval.predict(X_test)))
-    else:
-        acc = 1.0  # Default accuracy display for small dataset sizes
+    if progress_callback:
+        progress_callback(90, "Evaluating model accuracy...")
 
-    os.makedirs(models_dir, exist_ok=True)
-    model_file_path = os.path.join(models_dir, f"{model_name}.pkl")
+    acc = float(clf.score(X_test, y_test))
 
-    with open(model_file_path, "wb") as f:
+    model_path = f"{save_dir}/{model_name}.pkl"
+    with open(model_path, "wb") as f:
         pickle.dump(clf, f)
+
+    if progress_callback:
+        progress_callback(100, "Training complete!")
 
     return acc
 
 def predict_smile(image_bytes: bytes, model_path: str):
-    """Loads specified .pkl model and performs prediction on an image."""
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model file '{model_path}' not found.")
-
     with open(model_path, "rb") as f:
         clf = pickle.load(f)
 
-    features = process_image(image_bytes)
-    if features is None:
-        raise ValueError("Could not read uploaded image for inference.")
+    feat = extract_features(image_bytes).reshape(1, -1)
+    pred = clf.predict(feat)[0]
+    probs = clf.predict_proba(feat)[0]
 
-    features = features.reshape(1, -1)
-    prediction = clf.predict(features)[0]
-    probabilities = clf.predict_proba(features)[0]
+    label = "Smile" if pred == 1 else "Not Smile"
+    confidence = round(float(probs[pred]) * 100, 2)
 
-    predicted_label = "Smiling" if prediction == 1 else "Not Smiling"
-    confidence = float(max(probabilities)) * 100
-
-    return predicted_label, round(confidence, 2)
+    return label, confidence

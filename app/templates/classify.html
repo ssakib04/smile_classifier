@@ -1,25 +1,35 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card p-4 shadow-sm">
-    <h2>Classify Image</h2>
-    {% if not models %}
-        <div class="alert alert-warning">No models found! Please train a model on the <a href="/train">Train Page</a> first.</div>
-    {% else %}
-    <form action="/classify" method="post" enctype="multipart/form-data">
-        <div class="mb-3">
-            <label class="form-label fw-bold">Select Trained Model:</label>
-            <select name="model_choice" class="form-select" required>
-                {% for m in models %}
-                    <option value="{{ m }}">{{ m }}</option>
+<div class="max-w-xl mx-auto space-y-6">
+    <div class="text-center space-y-2">
+        <h1 class="text-3xl font-extrabold text-white">Classify Image</h1>
+        <p class="text-slate-400 text-sm">Select a model and upload a photo to predict smiles.</p>
+    </div>
+
+    {% if error %}
+    <div class="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-xl text-sm font-medium text-center">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form action="/classify" method="POST" enctype="multipart/form-data" class="glass p-6 rounded-2xl space-y-6">
+        <div>
+            <label class="block text-sm font-semibold text-slate-200 mb-2">Select Trained Model</label>
+            <select name="model_choice" required class="w-full bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                {% for model in models %}
+                <option value="{{ model }}">{{ model }}.pkl</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="mb-3">
-            <label class="form-label fw-bold">Upload Image to Test:</label>
-            <input type="file" name="image_file" class="form-control" accept="image/*" required>
+
+        <div>
+            <label class="block text-sm font-semibold text-slate-200 mb-2">Upload Image</label>
+            <input type="file" name="image_file" accept="image/*" required class="w-full bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3 text-slate-300 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-500">
         </div>
-        <button type="submit" class="btn btn-success">Predict Smile</button>
+
+        <button type="submit" class="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 font-semibold rounded-xl shadow-lg shadow-indigo-600/30 transition">
+            Run Prediction
+        </button>
     </form>
-    {% endif %}
 </div>
 {% endblock %}

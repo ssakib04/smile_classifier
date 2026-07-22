@@ -1,58 +1,64 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card p-4 shadow-sm mb-4">
-    <h2>Training History</h2>
-    <table class="table table-striped mt-3">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Model Name</th>
-                <th>Smiling Count</th>
-                <th>Not-Smiling Count</th>
-                <th>Accuracy</th>
-                <th>Trained At (BST)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in train_logs %}
-            <tr>
-                <td>{{ log.id }}</td>
-                <td>{{ log.model_name }}</td>
-                <td>{{ log.smile_count }}</td>
-                <td>{{ log.not_smile_count }}</td>
-                <td>{{ (log.accuracy_score * 100) | round(1) }}%</td>
-                <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+<div class="space-y-8 max-w-6xl mx-auto">
+    <div class="glass p-6 rounded-2xl space-y-4">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><i class="fa-solid fa-brain text-indigo-400"></i> Training History</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="text-xs uppercase bg-slate-900/60 text-slate-400">
+                    <tr>
+                        <th class="p-3">ID</th>
+                        <th class="p-3">Model</th>
+                        <th class="p-3">Smile Count</th>
+                        <th class="p-3">Not Smile Count</th>
+                        <th class="p-3">Accuracy</th>
+                        <th class="p-3">Trained At (BST)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for log in train_logs %}
+                    <tr>
+                        <td class="p-3 font-mono text-xs text-slate-500">{{ log.id }}</td>
+                        <td class="p-3 font-semibold text-white">{{ log.model_name }}</td>
+                        <td class="p-3 text-emerald-400">{{ log.smile_count }}</td>
+                        <td class="p-3 text-rose-400">{{ log.not_smile_count }}</td>
+                        <td class="p-3 font-bold text-indigo-400">{{ (log.accuracy_score * 100) | round(1) }}%</td>
+                        <td class="p-3 text-xs text-slate-400">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-<div class="card p-4 shadow-sm">
-    <h2>Inference History</h2>
-    <table class="table table-striped mt-3">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Image</th>
-                <th>Predicted Class</th>
-                <th>Confidence</th>
-                <th>Model Used</th>
-                <th>Classified At (BST)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for log in inference_logs %}
-            <tr>
-                <td>{{ log.id }}</td>
-                <td><img src="{{ log.image_path }}" width="50" height="50" class="rounded"></td>
-                <td>{{ log.predicted_class }}</td>
-                <td>{{ log.confidence }}%</td>
-                <td>{{ log.model_used }}</td>
-                <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="glass p-6 rounded-2xl space-y-4">
+        <h2 class="text-xl font-bold text-white flex items-center gap-2"><i class="fa-solid fa-list-check text-purple-400"></i> Inference History</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-300">
+                <thead class="text-xs uppercase bg-slate-900/60 text-slate-400">
+                    <tr>
+                        <th class="p-3">ID</th>
+                        <th class="p-3">Preview</th>
+                        <th class="p-3">Prediction</th>
+                        <th class="p-3">Confidence</th>
+                        <th class="p-3">Model</th>
+                        <th class="p-3">Classified At (BST)</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                    {% for log in inference_logs %}
+                    <tr>
+                        <td class="p-3 font-mono text-xs text-slate-500">{{ log.id }}</td>
+                        <td class="p-3"><img src="{{ log.image_path }}" class="w-10 h-10 object-cover rounded-lg border border-slate-700"></td>
+                        <td class="p-3 font-semibold text-white">{{ log.predicted_class }}</td>
+                        <td class="p-3 text-indigo-400 font-medium">{{ log.confidence }}%</td>
+                        <td class="p-3 text-slate-400 text-xs">{{ log.model_used }}</td>
+                        <td class="p-3 text-xs text-slate-400">{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
-{% endblock %}  
+{% endblock %}
