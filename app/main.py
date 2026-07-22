@@ -1,9 +1,9 @@
 import os
 import uuid
+import io
 from typing import List
 from datetime import datetime
-from PIL import Image
-import io
+from PIL import Image, ImageOps
 
 from fastapi import FastAPI, Request, Form, UploadFile, File, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
@@ -14,12 +14,10 @@ from sqlalchemy.orm import Session
 from app.database import engine, Base, get_db
 from app import models, ml_pipeline
 
-# Auto-create tables in PostgreSQL on startup
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Smile Classifier")
 
-# Mount Static and Template Directories
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
@@ -28,29 +26,41 @@ UPLOADS_DIR = "app/static/uploads"
 os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 
+def sanitize_and_compress_image(file_bytes: bytes, max_dim: int = 1024) -> bytes:
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        img = ImageOps.exif_transpose(img)
+
+        if img.mode in ("RGBA", "P", "LA", "1"):
+            img = img.convert("RGB")
+
+        img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+
+        output = io.BytesIO()
+        img.save(output, format="JPEG", quality=85, optimize=True)
+        return output.getvalue()
+    except Exception:
+        return None
+
 def get_available_models():
     if not os.path.exists(MODELS_DIR):
         return []
     return [f.replace(".pkl", "") for f in os.listdir(MODELS_DIR) if f.endswith(".pkl")]
 
-# 1. HOME PAGE
 @app.get("/")
 def home_page(request: Request):
     return templates.TemplateResponse("home.html", {"request": request})
 
-# 2. TRAIN PAGE (GET)
 @app.get("/train")
 def train_page(request: Request):
     return templates.TemplateResponse("train.html", {"request": request})
 
-# 2. TRAIN PAGE (POST)
 @app.post("/train")
 async def train_model(
     request: Request,
     db: Session = Depends(get_db)
 ):
     try:
-        # Increase limit here explicitly up to 10,000 files
         form = await request.form(max_files=10000, max_fields=10000)
         
         model_name = form.get("model_name")
@@ -66,27 +76,29 @@ async def train_model(
         smile_bytes = []
         for file in smile_images:
             if hasattr(file, "filename") and file.filename:
-                content = await file.read()
-                if content:
-                    smile_bytes.append(content)
+                raw_content = await file.read()
+                if raw_content:
+                    clean_jpg = sanitize_and_compress_image(raw_content)
+                    if clean_jpg:
+                        smile_bytes.append(clean_jpg)
 
         not_smile_bytes = []
         for file in not_smile_images:
             if hasattr(file, "filename") and file.filename:
-                content = await file.read()
-                if content:
-                    not_smile_bytes.append(content)
+                raw_content = await file.read()
+                if raw_content:
+                    clean_jpg = sanitize_and_compress_image(raw_content)
+                    if clean_jpg:
+                        not_smile_bytes.append(clean_jpg)
 
         if not smile_bytes or not not_smile_bytes:
             return templates.TemplateResponse("train.html", {
                 "request": request,
-                "error": "Please upload at least one image for both classes."
+                "error": "Please upload at least one valid image for both classes."
             })
 
-        # Train model and save .pkl
         acc_score = ml_pipeline.train_new_model(smile_bytes, not_smile_bytes, model_name, MODELS_DIR)
 
-        # Save record to Database
         log = models.TrainingLog(
             model_name=f"{model_name}.pkl",
             smile_count=len(smile_bytes),
@@ -102,13 +114,11 @@ async def train_model(
         })
 
     except Exception as e:
-        print(f"TRAINING ERROR: {str(e)}")
         return templates.TemplateResponse("train.html", {
             "request": request,
             "error": f"An error occurred during training: {str(e)}"
         })
 
-# 3. CLASSIFY PAGE (GET)
 @app.get("/classify")
 def classify_page(request: Request):
     available_models = get_available_models()
@@ -117,7 +127,6 @@ def classify_page(request: Request):
         "models": available_models
     })
 
-# 3. CLASSIFY PAGE (POST)
 @app.post("/classify")
 async def process_classification(
     request: Request,
@@ -128,15 +137,19 @@ async def process_classification(
     if not image_file.filename:
         raise HTTPException(status_code=400, detail="No file selected.")
 
-    contents = await image_file.read()
+    raw_contents = await image_file.read()
     
-    img = Image.open(io.BytesIO(contents)).convert('RGB')
+    clean_jpg = sanitize_and_compress_image(raw_contents)
+    if not clean_jpg:
+        raise HTTPException(status_code=400, detail="Uploaded file is not a valid image.")
+
     filename = f"{uuid.uuid4().hex}.jpg"
     file_path = os.path.join(UPLOADS_DIR, filename)
-    img.save(file_path, "JPEG")
+    with open(file_path, "wb") as f:
+        f.write(clean_jpg)
 
     model_path = os.path.join(MODELS_DIR, f"{model_choice}.pkl")
-    predicted_class, confidence = ml_pipeline.predict_smile(contents, model_path)
+    predicted_class, confidence = ml_pipeline.predict_smile(clean_jpg, model_path)
 
     relative_image_path = f"/static/uploads/{filename}"
 
@@ -157,7 +170,6 @@ async def process_classification(
         "model_used": model_choice
     })
 
-# 4. HISTORY PAGE
 @app.get("/history")
 def history_page(request: Request, db: Session = Depends(get_db)):
     train_logs = db.query(models.TrainingLog).order_by(models.TrainingLog.created_at.desc()).all()
