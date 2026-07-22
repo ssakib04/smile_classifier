@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4 shadow-sm text-center">
+    <h2>Prediction Result</h2>
+    <hr>
+    <div class="mb-3">
+        <img src="{{ image_path }}" class="img-thumbnail" style="max-height: 250px;">
+    </div>
+    <h3>Class: <span class="badge bg-primary">{{ predicted_class }}</span></h3>
+    <p class="fs-5 mt-2">Confidence Score: <strong>{{ confidence }}%</strong></p>
+    <p class="text-muted">Model Used: {{ model_used }}.pkl</p>
+    <a href="/classify" class="btn btn-outline-secondary mt-2">Test Another Image</a>
+</div>
+{% endblock %}

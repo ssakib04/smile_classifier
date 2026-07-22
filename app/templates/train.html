@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4 shadow-sm">
+    <h2>Train a New Model</h2>
+    <hr>
+    {% if error %}
+        <div class="alert alert-danger mb-3">{{ error }}</div>
+    {% endif %}
+    {% if message %}
+        <div class="alert alert-success mb-3">{{ message }}</div>
+    {% endif %}
+    
+    <form action="/train" method="post" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label class="form-label fw-bold">Model Version Name:</label>
+            <input type="text" name="model_name" class="form-control" placeholder="e.g., smile_model_v1" required>
+        </div>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold">Upload Smiling Images:</label>
+                <input type="file" name="smile_images" class="form-control" multiple accept="image/*" required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label fw-bold">Upload Not Smiling Images:</label>
+                <input type="file" name="not_smile_images" class="form-control" multiple accept="image/*" required>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-2">Train & Save Model</button>
+    </form>
+</div>
+{% endblock %}

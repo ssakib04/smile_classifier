@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Logs & History</h2>
+<hr>
+
+<h4 class="mt-4">Inference History</h4>
+<table class="table table-bordered table-striped mt-2">
+    <thead class="table-dark">
+        <tr>
+            <th>Image</th>
+            <th>Prediction</th>
+            <th>Confidence</th>
+            <th>Model Used</th>
+            <th>Date & Time</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in inference_logs %}
+        <tr>
+            <td style="width: 100px;">
+                <img src="{{ log.image_path }}" class="img-fluid rounded" style="max-height: 60px;">
+            </td>
+            <td><span class="badge bg-info text-dark">{{ log.predicted_class }}</span></td>
+            <td>{{ log.confidence }}%</td>
+            <td>{{ log.model_used }}</td>
+            <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center">No inference records found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h4 class="mt-5">Training History</h4>
+<table class="table table-bordered table-striped mt-2">
+    <thead class="table-dark">
+        <tr>
+            <th>Model Name</th>
+            <th>Smile Count</th>
+            <th>Not-Smile Count</th>
+            <th>Accuracy Score</th>
+            <th>Date & Time</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in train_logs %}
+        <tr>
+            <td><strong>{{ log.model_name }}</strong></td>
+            <td>{{ log.smile_count }}</td>
+            <td>{{ log.not_smile_count }}</td>
+            <td>{{ (log.accuracy_score * 100) | round(1) }}%</td>
+            <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') if log.created_at else 'N/A' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center">No training records found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

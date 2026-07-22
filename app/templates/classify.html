@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card p-4 shadow-sm">
+    <h2>Classify Image</h2>
+    {% if not models %}
+        <div class="alert alert-warning">No models found! Please train a model on the <a href="/train">Train Page</a> first.</div>
+    {% else %}
+    <form action="/classify" method="post" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label class="form-label fw-bold">Select Trained Model:</label>
+            <select name="model_choice" class="form-select" required>
+                {% for m in models %}
+                    <option value="{{ m }}">{{ m }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Upload Image to Test:</label>
+            <input type="file" name="image_file" class="form-control" accept="image/*" required>
+        </div>
+        <button type="submit" class="btn btn-success">Predict Smile</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

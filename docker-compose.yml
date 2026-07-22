@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: smile_db
+    ports:
+      - "5433:5432"  # <--- CHANGE THIS (Host 5433 maps to Container 5432)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - YSDTP_B5_AI_YourID
+
+  web:
+    build: .
+    container_name: smile_classifier_app
+    restart: always
+    ports:
+      - "8000:8000"  # Exposes app to outside network
+    environment:
+      # Notice we still use db:5432 here because containers talk on the internal network!
+      - DATABASE_URL=postgresql://admin:adminpassword@db:5432/smile_db
+    volumes:
+      - ./app/static/uploads:/app/app/static/uploads
+      - ./models_store:/app/models_store
+    depends_on:
+      - db
+    networks:
+      - YSDTP_B5_AI_YourID
+
+networks:
+  YSDTP_B5_AI_YourID:
+    driver: bridge
+
+volumes:
+  postgres_data:
