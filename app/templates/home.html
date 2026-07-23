@@ -1,16 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card p-4 shadow-sm">
-    <h2>Project Overview</h2>
+<div class="card-dark">
+    <h2 class="mb-3">Project Overview</h2>
     <hr>
-    <h4>Framework & Architecture Choice</h4>
-    <p>This application is built using <strong>FastAPI</strong> for the web API backend, <strong>SQLAlchemy</strong> ORM connected to <strong>PostgreSQL</strong> for logging, and <strong>scikit-learn</strong> for model training and inference.</p>
-    
-    <h4>Model & Preprocessing Explanation</h4>
-    <ul>
-        <li><strong>Model:</strong> Random Forest Classifier (Scikit-Learn)[cite: 1]. It handles small-to-medium datasets robustly without overfitting quickly.</li>
-        <li><strong>Feature Pipeline:</strong> Images uploaded during training/inference are resized to <code>64x64</code> pixels, converted to RGB, normalized into pixel vectors ($[0, 1]$ scale), and passed to the classifier.</li>
-        <li><strong>Inference Flow:</strong> Single image uploads are automatically converted to standard <code>.jpg</code>, stored in the file system, and logged alongside prediction results and confidence metrics in PostgreSQL[cite: 1].</li>
+    <h4 class="mt-4">Framework &amp; Architecture</h4>
+    <p class="text-muted-theme">This application is built using <strong class="text-light">FastAPI</strong> for the web API backend, <strong class="text-light">SQLAlchemy</strong> ORM connected to <strong class="text-light">PostgreSQL</strong> for logging, and <strong class="text-light">scikit-learn</strong> for model training and inference.</p>
+
+    <h4 class="mt-4">Model &amp; Preprocessing</h4>
+    <ul class="text-muted-theme">
+        <li class="mb-2"><strong class="text-light">Model:</strong> Random Forest Classifier (Scikit-Learn). It handles small-to-medium datasets robustly without overfitting quickly.</li>
+        <li class="mb-2"><strong class="text-light">Feature Pipeline:</strong> Images uploaded during training/inference are resized to <code>64×64</code> pixels, converted to RGB, normalized into pixel vectors ([0, 1] scale), and passed to the classifier.</li>
+        <li class="mb-2"><strong class="text-light">Image Normalization:</strong> All uploads are converted to standard <code>.jpg</code> format. Transparency (RGBA/LA) is composited onto a white background before saving.</li>
+        <li><strong class="text-light">Inference Flow:</strong> Single image uploads are stored in the file system and logged alongside prediction results and confidence metrics in PostgreSQL.</li>
     </ul>
 </div>
 {% endblock %}

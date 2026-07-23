@@ -1,25 +1,44 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card p-4 shadow-sm">
-    <h2>Classify Image</h2>
+<div class="card-dark">
+    <h2 class="mb-1">Classify Image</h2>
+    <p class="text-muted-theme mb-4">Select a trained model and upload an image for prediction.</p>
+    <hr>
+
     {% if not models %}
-        <div class="alert alert-warning">No models found! Please train a model on the <a href="/train">Train Page</a> first.</div>
+        <div class="alert-dark-warning">No models found! Please train a model on the <a href="/train" class="text-decoration-none" style="color:#fcd34d">Train Page</a> first.</div>
     {% else %}
-    <form action="/classify" method="post" enctype="multipart/form-data">
-        <div class="mb-3">
-            <label class="form-label fw-bold">Select Trained Model:</label>
+    <div id="classify-alert"></div>
+    <form id="classify-form" action="/classify" method="post" enctype="multipart/form-data">
+        <div class="mb-4">
+            <label class="form-label fw-bold">Select Trained Model</label>
             <select name="model_choice" class="form-select" required>
                 {% for m in models %}
                     <option value="{{ m }}">{{ m }}</option>
                 {% endfor %}
             </select>
         </div>
-        <div class="mb-3">
-            <label class="form-label fw-bold">Upload Image to Test:</label>
-            <input type="file" name="image_file" class="form-control" accept="image/*" required>
+        <div class="mb-4">
+            <label class="form-label fw-bold">Upload Image to Test</label>
+            <input type="file" name="image_file" id="image_file" class="form-control" accept="image/*" required>
+            <small class="text-muted-theme">Max 10 MB · All image formats accepted</small>
         </div>
-        <button type="submit" class="btn btn-success">Predict Smile</button>
+        <button type="submit" class="btn btn-success-theme">Predict Smile</button>
     </form>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/upload-validation.js"></script>
+<script>
+attachFileSizeValidation(document.getElementById("image_file"));
+
+document.getElementById("classify-form")?.addEventListener("submit", function (e) {
+    const input = document.getElementById("image_file");
+    if (!validateFileInput(input, { clearOnReject: false })) {
+        e.preventDefault();
+    }
+});
+</script>
 {% endblock %}

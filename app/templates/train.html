@@ -1,31 +1,156 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card p-4 shadow-sm">
-    <h2>Train a New Model</h2>
+<div class="card-dark">
+    <h2 class="mb-1">Train a New Model</h2>
+    <p class="text-muted-theme mb-4">Upload smile and not-smile images. All formats are normalized to JPG automatically.</p>
     <hr>
-    {% if error %}
-        <div class="alert alert-danger mb-3">{{ error }}</div>
-    {% endif %}
-    {% if message %}
-        <div class="alert alert-success mb-3">{{ message }}</div>
-    {% endif %}
-    
-    <form action="/train" method="post" enctype="multipart/form-data">
-        <div class="mb-3">
-            <label class="form-label fw-bold">Model Version Name:</label>
-            <input type="text" name="model_name" class="form-control" placeholder="e.g., smile_model_v1" required>
+
+    <div id="alert-area">
+        {% if error %}
+            <div class="alert-dark-danger mb-3">{{ error }}</div>
+        {% endif %}
+        {% if message %}
+            <div class="alert-dark-success mb-3">{{ message }}</div>
+        {% endif %}
+    </div>
+
+    <form id="train-form" enctype="multipart/form-data">
+        <div class="mb-4">
+            <label class="form-label fw-bold">Model Version Name</label>
+            <input type="text" name="model_name" id="model_name" class="form-control" placeholder="e.g., smile_model_v1" required>
         </div>
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <label class="form-label fw-bold">Upload Smiling Images:</label>
-                <input type="file" name="smile_images" class="form-control" multiple accept="image/*" required>
+        <div class="row grid-gap">
+            <div class="col-12 col-md-6 mb-3 mb-md-0">
+                <label class="form-label fw-bold">Upload Smiling Images</label>
+                <input type="file" name="smile_images" id="smile_images" class="form-control" multiple accept="image/*" required>
+                <small class="text-muted-theme">Max 10 MB per file · PNG, WEBP, BMP, etc. converted to JPG</small>
             </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label fw-bold">Upload Not Smiling Images:</label>
-                <input type="file" name="not_smile_images" class="form-control" multiple accept="image/*" required>
+            <div class="col-12 col-md-6">
+                <label class="form-label fw-bold">Upload Not Smiling Images</label>
+                <input type="file" name="not_smile_images" id="not_smile_images" class="form-control" multiple accept="image/*" required>
+                <small class="text-muted-theme">Max 10 MB per file · PNG, WEBP, BMP, etc. converted to JPG</small>
             </div>
         </div>
-        <button type="submit" class="btn btn-primary mt-2">Train & Save Model</button>
+
+        <div id="training-progress" class="training-progress-wrap" aria-live="polite">
+            <div class="progress-label">
+                <span class="epoch-text" id="progress-message">Preparing…</span>
+                <span id="progress-percent">0%</span>
+            </div>
+            <div class="progress progress-dark" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <button type="submit" id="train-btn" class="btn btn-accent mt-4">Train &amp; Save Model</button>
     </form>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="/static/js/upload-validation.js"></script>
+<script>
+(function () {
+    const form = document.getElementById("train-form");
+    const trainBtn = document.getElementById("train-btn");
+    const progressWrap = document.getElementById("training-progress");
+    const progressBar = document.getElementById("progress-bar");
+    const progressMessage = document.getElementById("progress-message");
+    const progressPercent = document.getElementById("progress-percent");
+    const alertArea = document.getElementById("alert-area");
+    const smileInput = document.getElementById("smile_images");
+    const notSmileInput = document.getElementById("not_smile_images");
+
+    attachFileSizeValidation(smileInput);
+    attachFileSizeValidation(notSmileInput);
+
+    function showAlert(message, type) {
+        alertArea.innerHTML = `<div class="alert-dark-${type} mb-3">${message}</div>`;
+    }
+
+    function setProgress(percent, message, epoch, totalEpochs) {
+        progressWrap.classList.add("active");
+        progressBar.style.width = `${percent}%`;
+        progressBar.setAttribute("aria-valuenow", percent);
+        progressPercent.textContent = `${percent}%`;
+
+        if (epoch && totalEpochs) {
+            progressMessage.textContent = `Epoch ${epoch}/${totalEpochs} — ${message}`;
+        } else {
+            progressMessage.textContent = message;
+        }
+    }
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        if (!validateFileInput(smileInput, { clearOnReject: false }) ||
+            !validateFileInput(notSmileInput, { clearOnReject: false })) {
+            return;
+        }
+
+        trainBtn.disabled = true;
+        trainBtn.textContent = "Training…";
+        alertArea.innerHTML = "";
+        setProgress(0, "Uploading images…");
+
+        const formData = new FormData(form);
+
+        try {
+            const response = await fetch("/api/train", { method: "POST", body: formData });
+            const data = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                showAlert(data.detail || "Training could not be started.", "danger");
+                progressWrap.classList.remove("active");
+                trainBtn.disabled = false;
+                trainBtn.textContent = "Train & Save Model";
+                return;
+            }
+
+            const jobId = data.job_id;
+            const source = new EventSource(`/api/train/progress/${jobId}`);
+
+            source.onmessage = (event) => {
+                const job = JSON.parse(event.data);
+                setProgress(
+                    job.percent || 0,
+                    job.message || "Training…",
+                    job.epoch,
+                    job.total_epochs
+                );
+
+                if (job.status === "completed") {
+                    source.close();
+                    const acc = (job.accuracy * 100).toFixed(1);
+                    showAlert(
+                        `Model '${job.model_name}' trained successfully with accuracy: ${acc}%`,
+                        "success"
+                    );
+                    trainBtn.disabled = false;
+                    trainBtn.textContent = "Train & Save Model";
+                } else if (job.status === "failed" || job.status === "not_found") {
+                    source.close();
+                    showAlert(job.error || job.message || "Training failed.", "danger");
+                    progressWrap.classList.remove("active");
+                    trainBtn.disabled = false;
+                    trainBtn.textContent = "Train & Save Model";
+                }
+            };
+
+            source.onerror = () => {
+                source.close();
+                showAlert("Lost connection to training progress stream.", "danger");
+                trainBtn.disabled = false;
+                trainBtn.textContent = "Train & Save Model";
+            };
+        } catch (err) {
+            showAlert("Network error while starting training.", "danger");
+            progressWrap.classList.remove("active");
+            trainBtn.disabled = false;
+            trainBtn.textContent = "Train & Save Model";
+        }
+    });
+})();
+</script>
 {% endblock %}

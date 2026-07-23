@@ -2,23 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Smile Classifier</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Smile Classifier{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/theme.css" rel="stylesheet">
+    {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
-        <div class="container">
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark-theme mb-4">
+        <div class="container-fluid page-container page-container-wide py-0">
             <a class="navbar-brand fw-bold" href="/">Smile Classifier</a>
-            <div class="navbar-nav">
-                <a class="nav-link" href="/">Home</a>
-                <a class="nav-link" href="/train">Train</a>
-                <a class="nav-link" href="/classify">Classify</a>
-                <a class="nav-link" href="/history">History</a>
+            <button class="navbar-toggler border-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <div class="navbar-nav ms-md-auto">
+                    <a class="nav-link{% if request.url.path == '/' %} active{% endif %}" href="/">Home</a>
+                    <a class="nav-link{% if request.url.path == '/train' %} active{% endif %}" href="/train">Train</a>
+                    <a class="nav-link{% if request.url.path == '/classify' %} active{% endif %}" href="/classify">Classify</a>
+                    <a class="nav-link{% if request.url.path == '/history' %} active{% endif %}" href="/history">History</a>
+                </div>
             </div>
         </div>
     </nav>
-    <div class="container">
+    <main class="page-container{% block container_class %}{% endblock %}">
         {% block content %}{% endblock %}
-    </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_scripts %}{% endblock %}
 </body>
 </html>

@@ -1,32 +1,48 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:15
-    container_name: smile_classifier_db
+    image: postgres:15-alpine
+    container_name: smile_postgres
+    restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: smile_db
-      TZ: Asia/Dhaka
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-smile_db}
     ports:
-      - "5433:5432"  # <-- Changed host port from 5432 to 5433
+      - "5435:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - smile_network
 
   web:
-    build: .
-    container_name: smile_classifier_app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    environment:
-      DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/smile_db
-      TZ: Asia/Dhaka
-    volumes:
-      - .:/app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: smile_fastapi
+    restart: always
     ports:
       - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-smile_db}
+      # Max upload size in bytes (default 10 MB). Client-side validation uses the same limit.
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-10485760}
     depends_on:
       - db
+    volumes:
+      - ./models_store:/app/models_store
+      - ./app/static/uploads:/app/app/static/uploads
+    networks:
+      - smile_network
 
 volumes:
   postgres_data:
+
+networks:
+  smile_network:
+    driver: bridge
+
+# Architecture notes:
+# - postgres:15-alpine and python:3.10-slim both publish multi-arch manifests (amd64 + arm64).
+# - On Apple Silicon (M1/M2/M3), run normally:  docker compose up --build
+# - To force a platform:  DOCKER_DEFAULT_PLATFORM=linux/amd64 docker compose up --build
+# - Cross-build both platforms:  docker buildx build --platform linux/amd64,linux/arm64 -t smile-classifier .
